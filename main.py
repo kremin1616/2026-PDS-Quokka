@@ -1,4 +1,5 @@
 from src.split_data import split_data
+from src.color_features import extract_color_features_skimage
 
 def main(features_path, prediction_results_path, model_path, load_model):
     """
