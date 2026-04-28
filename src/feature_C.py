@@ -1,4 +1,4 @@
-from skimage import color
+from skimage import color 
 import numpy as np
 
 def extract_color_features(img_rgb, mask):
@@ -41,7 +41,7 @@ def extract_color_features(img_rgb, mask):
     features['hsv_S_mean'] = lesion_hsv[:, 1].mean()  
     features['hsv_V_mean'] = lesion_hsv[:, 2].mean() 
 
-  
+    img_lab = color.rgb2lab(img_rgb)
     lesion_lab = img_lab[mask]
     features['lab_L_mean'] = lesion_lab[:, 0].mean()  
     features['lab_A_mean'] = lesion_lab[:, 1].mean()  
@@ -56,3 +56,4 @@ def extract_color_features(img_rgb, mask):
         features['rel_contrast'] = np.nan
 
     return features
+
