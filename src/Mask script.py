@@ -17,47 +17,64 @@ def load_image(path):
 def load_mask(path):
     gt = plt.imread(path)
 
+    # If RGB → convert to grayscale by taking one channel
+    if len(gt.shape) == 3:
+        gt = gt[:, :, 0]
+
+    # Normalize if needed (0–255 → 0–1)
     if gt.max() > 1:
         gt = gt / 255
 
-    return gt.astype(int)
+    # Convert to binary
+    gt = (gt > 0.5).astype(int)
+
+    return gt
 
 
 # ---------------------------
-# Dice score (optional)
+# Dice score
 # ---------------------------
 def calculate_dice(mask, gt):
     intersection = np.sum(mask * gt)
-    return (2 * intersection) / (np.sum(mask) + np.sum(gt) + 1e-8)
+    dice = intersection * 2 / (np.sum(mask) + np.sum(gt))
+    return dice
 
 
 # ---------------------------
 # Segmentation pipeline
+# (following professor's notebook exactly)
 # ---------------------------
 def segment_image(im):
-    # Convert to grayscale
-    gray = rgb2gray(im) * 256
+    # Remove alpha channel if present
+    if im.shape[-1] == 4:
+        im = im[:, :, :3]
 
-    # Step 1: blur
-    blurred = gaussian(gray, sigma=5)
+    # Step 1: Convert to grayscale, scale to [0, 256]
+    im256 = rgb2gray(im) * 256
 
-    # Step 2: threshold
-    mask = blurred < 120
+    # Step 2: Gaussian blur (sigma=5)
+    blurred_im = gaussian(im256, 5)
 
-    # Step 3: morphology
+    # Step 3: Threshold — dark pixels = lesion
+    mask = blurred_im < 120
+
+    # Step 4: Opening — removes thin hairs and sharp noise at borders
     struct_el = morphology.disk(6)
+    mask2 = morphology.binary_opening(mask, struct_el)
 
-    mask = morphology.binary_opening(mask, struct_el)
-    mask = morphology.binary_closing(mask, struct_el)
+    # Step 5: Blur the mask to smooth edges
+    blurred_mask = gaussian(mask2, 10)
 
-    return mask.astype(np.uint8)
+    # Step 6: Re-binarize
+    better_mask = blurred_mask > 0.5
+
+    return better_mask.astype(np.uint8)
 
 
 # ---------------------------
 # Save mask
 # ---------------------------
 def save_mask(mask, path):
-    # Convert to 0–255 image
     plt.imsave(path, mask, cmap='gray')
 
 
@@ -67,7 +84,7 @@ def save_mask(mask, path):
 if __name__ == "__main__":
 
     img_dir = "../data/imgs"
-    mask_dir = "../data/masks"          # optional (for Dice)
+    mask_dir = "../data/masks"
     output_dir = "../data/output_masks"
 
     os.makedirs(output_dir, exist_ok=True)
@@ -76,7 +93,7 @@ if __name__ == "__main__":
 
     for filename in os.listdir(img_dir):
 
-        if not filename.endswith(".png"):
+        if not filename.lower().endswith((".png", ".jpg", ".jpeg")):
             continue
 
         image_path = os.path.join(img_dir, filename)
